@@ -321,13 +321,26 @@
     if (Array.isArray(saved.membersData)) state.membersData = saved.membersData;
     if (Array.isArray(saved.schedulesData)) state.schedulesData = saved.schedulesData;
     if (Array.isArray(saved.projectsData)) state.projectsData = saved.projectsData;
-    if (typeof saved.activeTab === 'string') state.activeTab = saved.activeTab;
     if (saved.projectsExpandedProjectId != null && typeof saved.projectsExpandedProjectId === 'number') {
       state.projectsExpandedProjectId = saved.projectsExpandedProjectId;
     }
-    if (saved.currentUserId != null) {
-      const found = state.membersData.find((m) => m.id === saved.currentUserId);
-      if (found) state.currentUser = found;
+
+    // 항상 첫 화면은 로그인 화면이어야 하므로,
+    // 마지막 방문 탭/로그인 세션은 복원하지 않습니다.
+    state.currentUser = null;
+    state.activeTab = 'dashboard';
+    state.modal = null;
+
+    // 기존 저장소에 남아있는 마지막 탭/로그인 값도 제거(데이터는 유지)
+    if (saved.currentUserId != null || typeof saved.activeTab === 'string') {
+      try {
+        const nextPersist = { ...saved };
+        delete nextPersist.currentUserId;
+        delete nextPersist.activeTab;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(nextPersist));
+      } catch {
+        // ignore
+      }
     }
   }
 
