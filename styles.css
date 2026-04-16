@@ -733,6 +733,13 @@ thead th{background:#f8fafc; color:#475569; font-size: 12px; font-weight: 950; b
 .check-item__actions{display:flex; gap: 6px; opacity: .8}
 .check-item__actions:hover{opacity: 1}
 
+/* 체크리스트: 항목 수정 시 입력칸 최대 확장 + 우측 아이콘 영역 축소 */
+.check-item.is-editing .row{width:100%}
+.check-item.is-editing .row > *{flex: 0 0 auto}
+.check-item.is-editing .row > .input{flex: 1 1 auto; min-width: 0}
+.check-item.is-editing .btn--icon.btn--sm{padding: 6px; border-radius: 10px}
+.check-item.is-editing .btn--icon.btn--sm svg{width: 16px; height: 16px}
+
 .check-add{
   border-top: 1px solid #f1f5f9;
   background: #f8fafc;
