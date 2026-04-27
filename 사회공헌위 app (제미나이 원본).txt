@@ -1,0 +1,2212 @@
+import React, { useState } from 'react';
+import { 
+  Calendar, 
+  Home, 
+  Users, 
+  Settings, 
+  Bell,
+  ChevronRight,
+  Droplet,
+  Heart,
+  Wrench,
+  X,
+  LogOut,
+  Plus,
+  Edit,
+  Lock,
+  CheckCircle,
+  Circle,
+  Trash2,
+  Save,
+  Briefcase,
+  ListChecks,
+  Edit3,
+  Activity,
+  Clock
+} from 'lucide-react';
+
+// --- 회의 날짜 포맷 함수 ---
+const formatMeetingDate = (isoString) => {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (isNaN(d)) return isoString;
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일(${days[d.getDay()]}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+};
+
+// --- Mock Data: 2026 예상 스케줄 (24/25년도 회의록 기반) ---
+const INITIAL_SCHEDULES = [
+  { id: 1, month: '2월', title: '제1회 사회공헌위원회 (연간 계획 수립)', status: 'completed', isMeeting: true, exactDate: '2026-02-25T10:00', agenda: '2025년 사업 회고 및 2026년 사업 계획 수립' },
+  { id: 2, month: '4월', title: '쿨루프 사업 대상지 수요조사 및 사전답사', status: 'current' },
+  { id: 9, month: '4월', title: '제3회 사회공헌위원회 회의', status: 'upcoming', isMeeting: true, exactDate: '2026-04-14T16:00', agenda: '쿨루프 사전답사 결과 보고 및 본일정 편성' },
+  { id: 3, month: '5월-6월', title: '시원한 옥상 만들기 (쿨루프) 본작업', desc: '※ 기온 25도 이하 권장 (하절기 이전 완료)', status: 'upcoming' },
+  { id: 4, month: '7월', title: '사랑의 집 고쳐주기 / 김장김치 25개구 수요조사 공문 발송', status: 'upcoming' },
+  { id: 5, month: '9월-10월', title: '사랑의 집 고쳐주기 사전답사 및 가이드라인 배포', status: 'upcoming' },
+  { id: 6, month: '10월 말', title: '사랑의 집 고쳐주기 시공 및 문고리(안심홀) 병행', status: 'upcoming' },
+  { id: 7, month: '11월 초', title: '건축사대회 연계 헌혈 봉사 / 플로깅', status: 'upcoming' },
+  { id: 8, month: '11월 말', title: '이웃사랑 김장김치 나눔 행사', desc: '※ 예산 및 배추 단가 사전 확인 필수', status: 'upcoming' },
+];
+
+const INITIAL_PROJECTS = [
+  {
+    id: 1,
+    title: '시원한 옥상 만들기 (쿨루프)',
+    icon: Droplet,
+    theme: 'primary',
+    color: 'bg-blue-100 text-blue-600',
+    tasks: [
+      { id: 11, text: 'KCC 기술지원 및 자문 협의 완료', completed: true },
+      { id: 12, text: '대상 구건축사회 협조 공문 발송', completed: false },
+      { id: 13, text: '상도/하도 작업 건조 시간을 고려한 오전/오후조 편성', completed: false },
+      { id: 14, text: '작업용품(롤러, 테이프 등) 및 쿨루프 장비 비용 예산 파악', completed: false },
+      { id: 15, text: '노동 강도 대비 참여 건축사(자원봉사자) 식대 예산 배정', completed: false }
+    ],
+    description: '여름철 기온 상승 전(5~6월) 시공 완료를 목표로 조기 착수하는 쿨루프 사업입니다. 과거(24-25년) 은평, 강동 등에서 진행되었으며 올해도 KCC와의 기술지원 협력이 필요합니다.',
+    schedules: [
+      { id: 101, district: '강동구', type: '사전청소', date: '2026.05.08 (예정)', memberIds: [3], contact: '강동구 담당자', completed: true }, // 테스트용 1건 완료처리
+      { id: 102, district: '강동구', type: '본봉사', date: '2026.05.15 (예정)', memberIds: [3, 8, 6], contact: '오전/오후반 편성', completed: false },
+      { id: 103, district: '은평구', type: '사전청소', date: '2026.05.15 (예정)', memberIds: [2], contact: '은평구 담당자', completed: false },
+      { id: 104, district: '은평구', type: '본봉사', date: '2026.05.22 (예정)', memberIds: [2, 10, 7], contact: '오전/오후반 편성', completed: false }
+    ]
+  },
+  {
+    id: 2,
+    title: '사랑의 집 고쳐주기',
+    icon: Home,
+    theme: 'primary',
+    color: 'bg-green-100 text-green-600',
+    tasks: [
+      { id: 21, text: '25개구 대상 수요조사 공문 발송 및 접수', completed: false },
+      { id: 22, text: '사전답사 체크리스트 양식 업데이트', completed: false },
+      { id: 23, text: '표준 구비용품(도배, 장판 등) 단가 확인 및 리스트 작성', completed: false },
+      { id: 24, text: '사전조사 결과 자료 공유 폴더 취합 및 위원장 보고', completed: false },
+      { id: 25, text: '참여 건축사 대상 상해보험 가입 진행', completed: false },
+      { id: 26, text: '주거 안전설비(소화기, 화재경보기 등) 추가 설치 예산 검토', completed: false }
+    ],
+    description: '주거 취약계층의 도배, 장판 등을 지원하는 사업입니다. 올해는 사업지 선정 기준을 명확히 하고, 위원회 차원의 가이드라인과 공통 필요 물품을 배포할 예정입니다.',
+    schedules: [
+      { id: 201, district: '관악구', type: '사전답사', date: '2026.09.20 (예정)', memberIds: [7], contact: '관악구 건축사회', completed: false },
+      { id: 202, district: '관악구', type: '본봉사', date: '2026.10.20 (예정)', memberIds: [7, 8, 3], contact: '도배/장판', completed: false },
+      { id: 203, district: '강남구', type: '사전답사', date: '2026.09.24 (예정)', memberIds: [6], contact: '강남구 건축사회', completed: false },
+      { id: 204, district: '강남구', type: '본봉사', date: '2026.10.24 (예정)', memberIds: [6, 8, 10, 9], contact: '도배/장판', completed: false },
+      { id: 205, district: '은평구', type: '사전답사', date: '2026.09.29 (예정)', memberIds: [4], contact: '은평구 건축사회', completed: false },
+      { id: 206, district: '은평구', type: '본봉사', date: '2026.10.29 (예정)', memberIds: [4, 6, 10], contact: '도배/장판', completed: false }
+    ]
+  },
+  {
+    id: 3,
+    title: '이웃사랑 김장김치 나눔',
+    icon: Heart,
+    theme: 'primary',
+    color: 'bg-red-100 text-red-600',
+    tasks: [
+      { id: 31, text: '배추 단가 등 물가 인상분 반영하여 수량 및 예산 재편성', completed: false },
+      { id: 32, text: '각 지역구 명칭이 포함된 박스용 신규 스티커 디자인 제작', completed: false },
+      { id: 33, text: '행사용 대형 현수막(5m * 80cm) 신규 제작 발주', completed: false },
+      { id: 34, text: '절임배추 하차 및 물빼기 도구 사전 준비', completed: false },
+      { id: 35, text: '포장용 상자 및 속넣기 작업대 셋팅 계획 수립', completed: false }
+    ],
+    description: '매년 연말에 진행되는 대표 사회공헌 사업입니다. 작년 물가 상승 및 박스 혼선 이슈를 반영하여 새로운 디자인의 구별 스티커를 제작하고 예산을 재조정할 계획입니다.',
+    schedules: [
+      { id: 301, district: '전체지역', type: '물빼기 및 하차 (08:00)', date: '2026.11.25', memberIds: [1, 2], contact: '건축사회관 1층', completed: false },
+      { id: 302, district: '전체지역', type: '상자 조립 (09:00)', date: '2026.11.25', memberIds: [3, 4, 5], contact: '건축사회관 1층', completed: false },
+      { id: 303, district: '전체지역', type: '김치 속넣기 (10:00)', date: '2026.11.25', memberIds: [6, 7, 8], contact: '건축사회관 1층', completed: false },
+      { id: 304, district: '전체지역', type: '포장 및 상차 (12:00)', date: '2026.11.25', memberIds: [9, 10], contact: '건축사회관 1층', completed: false }
+    ]
+  },
+  {
+    id: 4,
+    title: '안심홀 (문고리 사고 예방)',
+    icon: Wrench,
+    theme: 'primary',
+    color: 'bg-purple-100 text-purple-600',
+    tasks: [
+      { id: 41, text: '안심홀 안내 리플렛 구청 민원실 비치 현황 파악', completed: true },
+      { id: 42, text: '집고쳐주기 대상 가구 방문 시 병행 설치 사전 안내', completed: false },
+      { id: 43, text: '실리콘 마개 및 타공 장비 수량 파악 및 점검', completed: false }
+    ],
+    description: '화장실 문 갇힘 사고를 예방하기 위한 타공 및 실리콘 마개 설치 사업입니다. 적은 예산으로 진행 가능하며 집고쳐주기 사업 답사 및 시공 시 병행하여 추진됩니다.',
+    schedules: [
+      { id: 401, district: '광진구', type: '병행시공', date: '상시', memberIds: [], contact: '광진구 민원실 협조', completed: false },
+      { id: 402, district: '강서구', type: '병행시공', date: '상시', memberIds: [], contact: '강서구 민원실 협조', completed: false },
+      { id: 403, district: '금천구', type: '병행시공', date: '상시', memberIds: [9], contact: '금천구 건축과 협조', completed: false }
+    ]
+  },
+  {
+    id: 5,
+    title: '건축사대회 연계 헌혈 봉사',
+    icon: Activity,
+    theme: 'secondary',
+    color: 'bg-amber-100 text-amber-600',
+    tasks: [
+      { id: 51, text: '대한적십자사 헌혈 버스 배차 협의', completed: false },
+      { id: 52, text: '건축사대회 참석자 대상 헌혈 독려 안내문 발송', completed: false },
+      { id: 53, text: '헌혈증서 기부 및 서약서 작성 창구 운영 계획 수립', completed: false }
+    ],
+    description: '하반기 건축사대회 행사와 연계하여 진행하는 헌혈 캠페인 및 헌혈증서 기부 활동입니다.',
+    schedules: [
+      { id: 501, district: '건축사대회장', type: '본행사', date: '2026.11.05 (예정)', memberIds: [], contact: '사무처 협조', completed: false }
+    ]
+  }
+];
+
+const INITIAL_MEMBERS = [
+  { id: 1, name: '박병걸', role: '위원장', group: '임원진' },
+  { id: 2, name: '정경선', role: '책임이사', group: '임원진' },
+  { id: 3, name: '황경순', role: '부위원장', group: '임원진' },
+  { id: 4, name: '김혜진', role: '총무위원', group: '임원진' },
+  { id: 5, name: '김영랑', role: '위원', group: '위원' },
+  { id: 6, name: '김윤상', role: '위원', group: '위원' },
+  { id: 7, name: '류상현', role: '위원', group: '위원' },
+  { id: 8, name: '백수정', role: '위원', group: '위원' },
+  { id: 9, name: '이정이', role: '위원', group: '위원' },
+  { id: 10, name: '형원균', role: '위원', group: '위원' },
+];
+
+const isMemberAdmin = (role) => ['위원장', '부위원장', '총무위원'].includes(role);
+
+// --- 시간 선택 옵션 (00분, 30분) ---
+const TIME_OPTIONS = [];
+for (let i = 7; i <= 22; i++) {
+  const hour = String(i).padStart(2, '0');
+  TIME_OPTIONS.push(`${hour}:00`);
+  TIME_OPTIONS.push(`${hour}:30`);
+}
+
+const calculateProgress = (tasks, schedules) => {
+  const totalTasks = (tasks?.length || 0) + (schedules?.length || 0);
+  if (totalTasks === 0) return 0;
+  const completedCount = (tasks?.filter(t => t.completed).length || 0) +
+                         (schedules?.filter(s => s.completed).length || 0);
+  return Math.round((completedCount / totalTasks) * 100);
+};
+
+const getProjectColor = (project) => {
+  if (project.color) return project.color;
+  return project.theme === 'secondary' ? 'bg-amber-100 text-amber-600' : 'bg-blue-100 text-blue-600';
+};
+
+const getProgressColorClass = (colorClass) => {
+  if (!colorClass) return 'bg-blue-500';
+  return colorClass.split(' ')[0].replace('100', '500');
+};
+
+const sortSchedules = (schedules) => {
+  return [...schedules].sort((a, b) => {
+    const getMonthNum = (monthStr) => {
+      const match = monthStr.match(/(\d+)/);
+      return match ? parseInt(match[1], 10) : 99;
+    };
+    return getMonthNum(a.month) - getMonthNum(b.month);
+  });
+};
+
+function LoginScreen({ onLogin, membersData }) {
+  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    setError('');
+    
+    if (!selectedMemberId) {
+      setError('이름을 선택해주세요.');
+      return;
+    }
+
+    const member = membersData.find(m => m.id === selectedMemberId);
+    
+    if (isMemberAdmin(member.role)) {
+      if (password === '2026') {
+        onLogin(member);
+      } else {
+        setError('비밀번호가 일치하지 않습니다.');
+      }
+    } else {
+      onLogin(member);
+    }
+  };
+
+  const selectedMember = membersData.find(m => m.id === selectedMemberId);
+  const requiresPassword = selectedMember && isMemberAdmin(selectedMember.role);
+
+  const handleCardClick = (member) => {
+    setSelectedMemberId(member.id);
+    setPassword('');
+    setError('');
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl overflow-hidden">
+        <div className="bg-blue-600 p-6 text-center">
+          <h1 className="text-2xl font-bold text-white">사회공헌위원회 시스템</h1>
+          <p className="text-blue-100 text-sm mt-2">2026년 통합 관리 대시보드 로그인</p>
+        </div>
+        
+        <div className="p-8">
+          <h2 className="text-lg font-bold text-slate-800 mb-6 text-center">접속할 위원을 선택해주세요</h2>
+          
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-8">
+            {membersData.map(m => {
+              const isSelected = selectedMemberId === m.id;
+              const isAdmin = isMemberAdmin(m.role);
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => handleCardClick(m)}
+                  className={`p-4 rounded-xl border transition-all ${
+                    isSelected 
+                      ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-200' 
+                      : 'border-slate-200 hover:border-blue-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex flex-col items-center text-center space-y-3">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
+                      isAdmin ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {m.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-800">{m.name}</div>
+                      <div className="text-xs text-slate-500 mt-1">{m.role}</div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <form onSubmit={handleLogin} className="max-w-md mx-auto space-y-6">
+            {requiresPassword && (
+              <div className="animate-in fade-in slide-in-from-top-2 duration-300 bg-slate-50 p-6 rounded-xl border border-slate-100">
+                <label className="block text-sm font-semibold text-slate-700 mb-2 flex items-center">
+                  <Lock size={16} className="mr-1 text-slate-500" /> 관리자 비밀번호
+                </label>
+                <input 
+                  type="password"
+                  placeholder="비밀번호를 입력하세요 (2026)"
+                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoFocus
+                />
+                <p className="text-xs text-slate-500 mt-2">* 위원장, 부위원장, 총무위원은 접근 권한 확인이 필요합니다.</p>
+              </div>
+            )}
+
+            {error && <p className="text-red-500 text-sm font-medium text-center">{error}</p>}
+
+            <button 
+              type="submit"
+              disabled={!selectedMemberId}
+              className={`w-full py-3 font-bold rounded-lg transition shadow-md ${
+                selectedMemberId 
+                  ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
+            >
+              접속하기
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  const [membersData, setMembersData] = useState(INITIAL_MEMBERS);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [messageBox, setMessageBox] = useState(null);
+  const [projectsData, setProjectsData] = useState(INITIAL_PROJECTS);
+  const [schedulesData, setSchedulesData] = useState(INITIAL_SCHEDULES);
+
+  if (!currentUser) {
+    return <LoginScreen onLogin={setCurrentUser} membersData={membersData} />;
+  }
+
+  const isAdmin = isMemberAdmin(currentUser.role);
+
+  const showMessage = (title, content) => {
+    setMessageBox({ title, content });
+  };
+
+  const handleToggleParticipation = (projectId, scheduleId, memberId) => {
+    setProjectsData(prevProjects => {
+      return prevProjects.map(project => {
+        if (project.id === projectId) {
+          return {
+            ...project,
+            schedules: project.schedules.map(schedule => {
+              if (schedule.id === scheduleId) {
+                const isParticipating = schedule.memberIds.includes(memberId);
+                const updatedMemberIds = isParticipating
+                  ? schedule.memberIds.filter(id => id !== memberId)
+                  : [...schedule.memberIds, memberId];
+                return { ...schedule, memberIds: updatedMemberIds };
+              }
+              return schedule;
+            })
+          };
+        }
+        return project;
+      });
+    });
+  };
+
+  const handleToggleScheduleCompletion = (projectId, scheduleId) => {
+    setProjectsData(prevProjects => {
+      return prevProjects.map(project => {
+        if (project.id === projectId) {
+          return {
+            ...project,
+            schedules: project.schedules.map(schedule => {
+              if (schedule.id === scheduleId) {
+                return { ...schedule, completed: !schedule.completed };
+              }
+              return schedule;
+            })
+          };
+        }
+        return project;
+      });
+    });
+  };
+
+  const handleToggleTask = (projectId, taskId) => {
+    setProjectsData(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          tasks: p.tasks.map(t => t.id === taskId ? { ...t, completed: !t.completed } : t)
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleAddTask = (projectId, text) => {
+    setProjectsData(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          tasks: [...p.tasks, { id: Date.now(), text, completed: false }]
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleUpdateTask = (projectId, taskId, newText) => {
+    setProjectsData(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          tasks: p.tasks.map(t => t.id === taskId ? { ...t, text: newText } : t)
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleDeleteTask = (projectId, taskId) => {
+    setProjectsData(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          tasks: p.tasks.filter(t => t.id !== taskId)
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleAddSchedule = (newSchedule) => {
+    setSchedulesData(prev => sortSchedules([...prev, { ...newSchedule, id: Date.now() }]));
+  };
+
+  const handleUpdateSchedule = (id, updatedSchedule) => {
+    setSchedulesData(prev => sortSchedules(prev.map(s => s.id === id ? { ...s, ...updatedSchedule } : s)));
+  };
+
+  const handleDeleteSchedule = (id) => {
+    setSchedulesData(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleAddMember = (newMember) => {
+    setMembersData([...membersData, { ...newMember, id: Date.now() }]);
+  };
+
+  const handleUpdateMember = (id, updatedMember) => {
+    setMembersData(membersData.map(m => m.id === id ? { ...m, ...updatedMember } : m));
+    if (currentUser.id === id) {
+      setCurrentUser({ ...currentUser, ...updatedMember });
+    }
+  };
+
+  const handleDeleteMember = (id) => {
+    setMembersData(membersData.filter(m => m.id !== id));
+    if (currentUser.id === id) {
+      setCurrentUser(null);
+    }
+  };
+
+  const handleAddProject = (newProject) => {
+    setProjectsData([...projectsData, { ...newProject, id: Date.now(), tasks: [], schedules: [] }]);
+  };
+
+  const handleUpdateProjectInfo = (projectId, updatedInfo) => {
+    setProjectsData(projectsData.map(p => p.id === projectId ? { ...p, ...updatedInfo } : p));
+  };
+
+  const handleDeleteProject = (projectId) => {
+    setProjectsData(projectsData.filter(p => p.id !== projectId));
+  };
+
+  const handleAddProjectSchedule = (projectId, newSchedule) => {
+    setProjectsData(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          schedules: [...(p.schedules || []), { ...newSchedule, id: Date.now(), memberIds: [], completed: false }]
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleUpdateProjectSchedule = (projectId, scheduleId, updatedSchedule) => {
+    setProjectsData(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          schedules: p.schedules.map(s => s.id === scheduleId ? { ...s, ...updatedSchedule } : s)
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleDeleteProjectSchedule = (projectId, scheduleId) => {
+    setProjectsData(prev => prev.map(p => {
+      if (p.id === projectId) {
+        return {
+          ...p,
+          schedules: p.schedules.filter(s => s.id !== scheduleId)
+        };
+      }
+      return p;
+    }));
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return <Dashboard 
+                  isAdmin={isAdmin} 
+                  showMessage={showMessage} 
+                  setActiveTab={setActiveTab} 
+                  projectsData={projectsData} 
+                  schedulesData={schedulesData}
+                  onUpdateSchedule={handleUpdateSchedule}
+               />;
+      case 'schedule':
+        return <Schedule 
+                  isAdmin={isAdmin} 
+                  schedulesData={schedulesData}
+                  onAddSchedule={handleAddSchedule}
+                  onUpdateSchedule={handleUpdateSchedule}
+                  onDeleteSchedule={handleDeleteSchedule}
+               />;
+      case 'projects':
+        return <Projects 
+                  isAdmin={isAdmin} 
+                  showMessage={showMessage} 
+                  projectsData={projectsData} 
+                  membersData={membersData}
+                  currentUser={currentUser}
+                  onToggleParticipation={handleToggleParticipation}
+                  onToggleScheduleCompletion={handleToggleScheduleCompletion}
+                  onAddProject={handleAddProject}
+                  onUpdateProjectInfo={handleUpdateProjectInfo}
+                  onDeleteProject={handleDeleteProject}
+                  onAddProjectSchedule={handleAddProjectSchedule}
+                  onUpdateProjectSchedule={handleUpdateProjectSchedule}
+                  onDeleteProjectSchedule={handleDeleteProjectSchedule}
+               />;
+      case 'checklist':
+        return <ChecklistPage 
+                  isAdmin={isAdmin} 
+                  projectsData={projectsData} 
+                  onToggleTask={handleToggleTask}
+                  onAddTask={handleAddTask}
+                  onUpdateTask={handleUpdateTask}
+                  onDeleteTask={handleDeleteTask}
+               />;
+      case 'members':
+        return <Members 
+                  isAdmin={isAdmin}
+                  projectsData={projectsData} 
+                  membersData={membersData}
+                  onAddMember={handleAddMember}
+                  onUpdateMember={handleUpdateMember}
+                  onDeleteMember={handleDeleteMember}
+               />;
+      default:
+        return <Dashboard 
+                  isAdmin={isAdmin} 
+                  showMessage={showMessage} 
+                  setActiveTab={setActiveTab} 
+                  projectsData={projectsData} 
+                  schedulesData={schedulesData}
+                  onUpdateSchedule={handleUpdateSchedule}
+               />;
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-slate-50 font-sans text-slate-800">
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col hidden md:flex">
+        <div className="p-6 border-b border-slate-100">
+          <h1 className="font-bold text-lg text-slate-900 leading-tight">
+            서울특별시건축사회<br/>
+            <span className="text-blue-600">사회공헌위원회</span>
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">2026 통합 관리 시스템</p>
+        </div>
+        
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <NavItem icon={Home} label="대시보드" isActive={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+          <NavItem icon={Calendar} label="연간 일정 관리" isActive={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')} />
+          <NavItem icon={Briefcase} label="사업별 현황" isActive={activeTab === 'projects'} onClick={() => setActiveTab('projects')} />
+          <NavItem icon={ListChecks} label="체크리스트" isActive={activeTab === 'checklist'} onClick={() => setActiveTab('checklist')} />
+          <NavItem icon={Users} label="위원 명단" isActive={activeTab === 'members'} onClick={() => setActiveTab('members')} />
+        </nav>
+
+        <div className="p-4 border-t border-slate-100">
+          <NavItem icon={Settings} label="설정" onClick={() => showMessage('설정', '설정 페이지는 준비 중입니다.')} />
+        </div>
+      </aside>
+
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 md:px-8">
+          <div className="flex items-center md:hidden">
+            <h1 className="font-bold text-lg text-slate-900">사회공헌위원회 2026</h1>
+          </div>
+          <div className="hidden md:block text-lg font-semibold">
+            {activeTab === 'dashboard' && '대시보드'}
+            {activeTab === 'schedule' && '연간 일정 관리'}
+            {activeTab === 'projects' && '사업별 현황'}
+            {activeTab === 'checklist' && '사업별 체크리스트'}
+            {activeTab === 'members' && '위원 명단'}
+          </div>
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => showMessage('알림', '새로운 알림이 없습니다.')}
+              className="relative p-2 text-slate-400 hover:text-slate-600"
+            >
+              <Bell size={20} />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
+            
+            <div className="flex items-center space-x-3 border-l border-slate-200 pl-4">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-slate-800">{currentUser.name}</p>
+                <p className="text-xs text-slate-500">{currentUser.role}</p>
+              </div>
+              <div className={`w-9 h-9 rounded-full ${isAdmin ? 'bg-amber-100 text-amber-700' : 'bg-blue-600 text-white'} flex items-center justify-center font-bold text-sm`}>
+                {currentUser.name.charAt(0)}
+              </div>
+              <button 
+                onClick={() => setCurrentUser(null)}
+                className="p-2 text-slate-400 hover:text-red-500 transition ml-2"
+                title="로그아웃"
+              >
+                <LogOut size={20} />
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-auto p-6 md:p-8 bg-slate-50">
+          {renderContent()}
+        </div>
+      </main>
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex justify-around p-2 z-10">
+        <MobileNavItem icon={Home} label="홈" isActive={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
+        <MobileNavItem icon={Calendar} label="일정" isActive={activeTab === 'schedule'} onClick={() => setActiveTab('schedule')} />
+        <MobileNavItem icon={Briefcase} label="사업" isActive={activeTab === 'projects'} onClick={() => setActiveTab('projects')} />
+        <MobileNavItem icon={ListChecks} label="체크리스트" isActive={activeTab === 'checklist'} onClick={() => setActiveTab('checklist')} />
+        <MobileNavItem icon={Users} label="명단" isActive={activeTab === 'members'} onClick={() => setActiveTab('members')} />
+      </nav>
+
+      {messageBox && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Bell size={24} />
+              </div>
+              <h3 className="font-bold text-lg text-slate-800 mb-2">{messageBox.title}</h3>
+              <p className="text-slate-600 text-sm mb-6">{messageBox.content}</p>
+              <button 
+                onClick={() => setMessageBox(null)} 
+                className="px-4 py-2.5 bg-blue-600 text-white rounded-lg w-full font-bold hover:bg-blue-700 transition"
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Dashboard({ isAdmin, showMessage, setActiveTab, projectsData, schedulesData, onUpdateSchedule }) {
+  const activeProjectsCount = projectsData.filter(p => calculateProgress(p.tasks, p.schedules) < 100).length;
+  
+  const upcomingMeeting = schedulesData.find(s => s.isMeeting && s.status !== 'completed');
+
+  const [isEditingMeeting, setIsEditingMeeting] = useState(false);
+  const [editMeetingData, setEditMeetingData] = useState(null);
+
+  const handleOpenEditMeeting = () => {
+    if (upcomingMeeting) {
+      setEditMeetingData({ ...upcomingMeeting });
+      setIsEditingMeeting(true);
+    }
+  };
+
+  const handleSaveMeeting = () => {
+    if (editMeetingData) {
+      const d = new Date(editMeetingData.exactDate);
+      const monthStr = isNaN(d) ? editMeetingData.month : `${d.getMonth() + 1}월`;
+      onUpdateSchedule(editMeetingData.id, {
+        ...editMeetingData,
+        month: monthStr
+      });
+    }
+    setIsEditingMeeting(false);
+  };
+
+  // --- 가장 가까운 주요 사업(primary) 일정 추출 로직 추가 ---
+  const getUpcomingPrimarySchedule = () => {
+    const allPrimarySchedules = [];
+    projectsData.forEach(project => {
+      if (project.theme !== 'secondary' && project.schedules) {
+        project.schedules.forEach(schedule => {
+          if (!schedule.completed) {
+            allPrimarySchedules.push({
+              ...schedule,
+              projectId: project.id,
+              projectTitle: project.title,
+              projectIcon: project.icon,
+              projectDesc: project.description
+            });
+          }
+        });
+      }
+    });
+
+    return allPrimarySchedules.sort((a, b) => {
+      const parseDate = (dateStr) => {
+        const match = dateStr.match(/(\d{4})\.(\d{2})\.(\d{2})/);
+        if (match) return new Date(match[1], match[2] - 1, match[3]).getTime();
+        return Infinity;
+      };
+      return parseDate(a.date) - parseDate(b.date);
+    })[0];
+  };
+
+  const currentFocus = getUpcomingPrimarySchedule();
+
+  return (
+    <div className="space-y-6">
+      {upcomingMeeting ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 flex items-start justify-between relative">
+          <div className="flex items-start flex-1">
+            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-4 flex-shrink-0">
+              <Bell className="text-blue-600" size={20} />
+            </div>
+            <div>
+              <h4 className="font-bold text-blue-800 text-lg mb-1">다가오는 회의 안내</h4>
+              <p className="text-sm text-blue-700 leading-relaxed">
+                <span className="font-semibold">{upcomingMeeting.title}</span>가 <span className="font-bold underline decoration-blue-300">{formatMeetingDate(upcomingMeeting.exactDate)}</span> 에 예정되어 있습니다.<br/>
+                (안건: {upcomingMeeting.agenda})
+              </p>
+            </div>
+          </div>
+          {isAdmin && (
+            <button 
+              onClick={handleOpenEditMeeting}
+              className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition"
+              title="회의 일정 수정"
+            >
+              <Edit3 size={20} />
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5 flex items-start flex-1">
+          <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center mr-4 flex-shrink-0">
+            <Bell className="text-slate-400" size={20} />
+          </div>
+          <div>
+            <h4 className="font-bold text-slate-500 text-lg mb-1">다가오는 회의 안내</h4>
+            <p className="text-sm text-slate-400 leading-relaxed">
+              현재 예정된 회의 일정이 없습니다.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard title="2026년 배정 예산" value="49,000,000 원" subtitle="일반/해체/감리 회계 포함" />
+        <StatCard title="진행중인 사업" value={`${activeProjectsCount} 건`} subtitle="세부일정 및 체크리스트 기준" />
+        <StatCard title="협조 구건축사회" value="대기중" subtitle="7월 공문 발송 예정" />
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-bold">현재 집중 업무</h2>
+          {isAdmin && (
+            <button 
+              onClick={() => showMessage('업무 연동 안내', '사업별 현황에서 주요 사업의 세부 일정을 관리하면, 가장 가까운 일정이 이곳에 자동으로 반영됩니다.')}
+              className="flex items-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+            >
+              <Edit size={16} className="mr-1" /> 연동 안내
+            </button>
+          )}
+        </div>
+        <div className="space-y-4">
+          {currentFocus ? (
+            <div className="flex items-center p-4 rounded-lg bg-slate-50 border border-slate-100">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center mr-4 flex-shrink-0">
+                {currentFocus.projectIcon && <currentFocus.projectIcon className="text-blue-600" size={20} />}
+              </div>
+              <div className="flex-1 min-w-0 pr-4">
+                <h3 className="font-bold text-slate-800 truncate">{currentFocus.projectTitle} - {currentFocus.type}</h3>
+                <p className="text-sm text-blue-600 font-semibold mt-1 truncate">일정: {currentFocus.date} | 장소: {currentFocus.district}</p>
+                <p className="text-xs text-slate-500 mt-1 line-clamp-1">{currentFocus.projectDesc}</p>
+              </div>
+              <button 
+                onClick={() => setActiveTab('projects')}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition whitespace-nowrap"
+              >
+                상세보기
+              </button>
+            </div>
+          ) : (
+            <div className="text-center py-6 bg-slate-50 rounded-lg border border-slate-100 text-slate-500 text-sm">
+              현재 예정된 주요 사업 일정이 없습니다.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isEditingMeeting && editMeetingData && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800">회의 일정 수정</h3>
+              <button onClick={() => setIsEditingMeeting(false)} className="text-slate-400 hover:text-slate-600 transition">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">회의명 (차수)</label>
+                <input 
+                  type="text" 
+                  value={editMeetingData.title}
+                  onChange={(e) => setEditMeetingData({...editMeetingData, title: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">회의 일시</label>
+                <div className="flex space-x-2">
+                  <input 
+                    type="date" 
+                    value={editMeetingData.exactDate?.split('T')[0] || ''}
+                    onChange={(e) => {
+                      const time = editMeetingData.exactDate?.split('T')[1]?.substring(0,5) || '10:00';
+                      setEditMeetingData({...editMeetingData, exactDate: `${e.target.value}T${time}`});
+                    }}
+                    className="flex-1 p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                  <select
+                    value={editMeetingData.exactDate?.split('T')[1]?.substring(0,5) || '10:00'}
+                    onChange={(e) => {
+                      const date = editMeetingData.exactDate?.split('T')[0] || new Date().toISOString().split('T')[0];
+                      setEditMeetingData({...editMeetingData, exactDate: `${date}T${e.target.value}`});
+                    }}
+                    className="w-28 p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  >
+                    {TIME_OPTIONS.map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">주요 안건</label>
+                <textarea 
+                  value={editMeetingData.agenda}
+                  onChange={(e) => setEditMeetingData({...editMeetingData, agenda: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none h-24"
+                ></textarea>
+              </div>
+            </div>
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end space-x-2">
+              <button 
+                onClick={() => setIsEditingMeeting(false)}
+                className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition"
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleSaveMeeting}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+              >
+                저장하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Schedule({ isAdmin, schedulesData, onAddSchedule, onUpdateSchedule, onDeleteSchedule }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isMeetingModalOpen, setIsMeetingModalOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
+  
+  const [formData, setFormData] = useState({ month: '', title: '', desc: '', status: 'upcoming' });
+  const [meetingFormData, setMeetingFormData] = useState({ title: '', exactDate: '', agenda: '', status: 'upcoming' });
+  const [formError, setFormError] = useState('');
+
+  const handleOpenAdd = () => {
+    setEditingSchedule(null);
+    setFormData({ month: '', title: '', desc: '', status: 'upcoming' });
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenAddMeeting = () => {
+    setEditingSchedule(null);
+    setMeetingFormData({ title: '', exactDate: '', agenda: '', status: 'upcoming' });
+    setFormError('');
+    setIsMeetingModalOpen(true);
+  };
+
+  const handleOpenEdit = (schedule) => {
+    setEditingSchedule(schedule);
+    setFormData({ month: schedule.month, title: schedule.title, desc: schedule.desc || '', status: schedule.status });
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditMeeting = (schedule) => {
+    setEditingSchedule(schedule);
+    setMeetingFormData({ 
+      title: schedule.title, 
+      exactDate: schedule.exactDate || '', 
+      agenda: schedule.agenda || '', 
+      status: schedule.status 
+    });
+    setFormError('');
+    setIsMeetingModalOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!formData.month.trim() || !formData.title.trim()) {
+      setFormError('시기와 일정명은 필수 입력 항목입니다.');
+      return;
+    }
+    
+    const payload = { ...formData, isMeeting: false };
+    if (editingSchedule) {
+      onUpdateSchedule(editingSchedule.id, payload);
+    } else {
+      onAddSchedule(payload);
+    }
+    setIsModalOpen(false);
+  };
+
+  const handleSaveMeeting = () => {
+    if (!meetingFormData.title.trim() || !meetingFormData.exactDate) {
+      setFormError('회의명과 일시는 필수 입력 항목입니다.');
+      return;
+    }
+
+    const d = new Date(meetingFormData.exactDate);
+    const monthStr = isNaN(d) ? '' : `${d.getMonth() + 1}월`;
+
+    const payload = { 
+      ...meetingFormData, 
+      month: monthStr,
+      isMeeting: true 
+    };
+
+    if (editingSchedule) {
+      onUpdateSchedule(editingSchedule.id, payload);
+    } else {
+      onAddSchedule(payload);
+    }
+    setIsMeetingModalOpen(false);
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold">2026년 연간 주요 일정</h2>
+        {isAdmin && (
+          <div className="flex space-x-2">
+            <button 
+              onClick={handleOpenAddMeeting}
+              className="flex items-center px-3 py-2 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 text-sm font-semibold transition"
+            >
+              <Users size={16} className="mr-1" /> 회의 일정 추가
+            </button>
+            <button 
+              onClick={handleOpenAdd}
+              className="flex items-center px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-sm font-semibold transition"
+            >
+              <Plus size={16} className="mr-1" /> 일정 추가
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="relative border-l-2 border-slate-100 ml-3 md:ml-4 space-y-8 pb-4">
+        {schedulesData.map((item) => (
+          <div key={item.id} className="relative pl-6 md:pl-8 group">
+            <div className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 ${
+              item.status === 'completed' ? 'bg-blue-500 border-blue-500' :
+              item.status === 'current' ? 'bg-white border-blue-500 ring-4 ring-blue-50' :
+              'bg-white border-slate-300'
+            }`}></div>
+            <div className="flex flex-col md:flex-row md:items-start justify-between">
+              <div className="flex flex-col md:flex-row md:items-start flex-1">
+                <div className="md:w-32 flex-shrink-0 font-bold text-slate-700 mb-1 md:mb-0 mt-0.5">
+                  {item.month}
+                </div>
+                <div className="flex-1 pr-4">
+                  <h3 className={`font-semibold flex items-center flex-wrap gap-2 ${
+                    item.status === 'completed' 
+                      ? (item.isMeeting ? 'text-sm text-indigo-400 line-through' : 'text-lg text-slate-500 line-through')
+                      : (item.isMeeting ? 'text-sm text-indigo-700' : 'text-lg text-slate-800')
+                  }`}>
+                    <span>{item.title}</span>
+                    {item.isMeeting && (
+                      <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-md flex items-center not-italic no-underline">
+                        <Users size={12} className="mr-1" /> 회의
+                      </span>
+                    )}
+                  </h3>
+                  
+                  {item.isMeeting ? (
+                    <div className={`mt-2 p-3 rounded-lg ${item.status === 'completed' ? 'bg-slate-50 opacity-60' : 'bg-indigo-50 border border-indigo-100'}`}>
+                      <p className="text-xs text-indigo-800 mb-1"><span className="font-bold">일시:</span> {formatMeetingDate(item.exactDate)}</p>
+                      <p className="text-xs text-indigo-800"><span className="font-bold">안건:</span> {item.agenda}</p>
+                    </div>
+                  ) : (
+                    item.desc && (
+                      <p className="text-sm text-red-500 mt-1 flex items-center">
+                        <span className="mr-1">⚠️</span> {item.desc}
+                      </p>
+                    )
+                  )}
+                </div>
+              </div>
+              
+              {isAdmin && (
+                <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity mt-2 md:mt-0">
+                  <button 
+                    onClick={() => item.isMeeting ? handleOpenEditMeeting(item) : handleOpenEdit(item)}
+                    className="p-1.5 text-slate-400 hover:text-blue-600 rounded hover:bg-blue-50 transition" 
+                    title="수정"
+                  >
+                    <Edit size={18} />
+                  </button>
+                  <button 
+                    onClick={() => onDeleteSchedule(item.id)}
+                    className="p-1.5 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition" 
+                    title="삭제"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+        {schedulesData.length === 0 && (
+          <div className="pl-6 md:pl-8 text-slate-500 text-sm py-4">등록된 연간 일정이 없습니다.</div>
+        )}
+      </div>
+
+      {/* --- 일반 일정 추가/수정 모달 --- */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800">{editingSchedule ? '일반 일정 수정' : '일반 일정 추가'}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">시기 (월)</label>
+                <input 
+                  type="text" 
+                  value={formData.month}
+                  onChange={(e) => setFormData({...formData, month: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="예: 7월, 10월 말"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">일정명</label>
+                <input 
+                  type="text" 
+                  value={formData.title}
+                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="주요 일정 내용을 입력하세요"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">비고 및 주의사항 (선택)</label>
+                <input 
+                  type="text" 
+                  value={formData.desc}
+                  onChange={(e) => setFormData({...formData, desc: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="예: ※ 기온 25도 이하 권장"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">진행 상태</label>
+                <select 
+                  value={formData.status}
+                  onChange={(e) => setFormData({...formData, status: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="upcoming">예정 (Upcoming)</option>
+                  <option value="current">진행 중 (Current)</option>
+                  <option value="completed">완료 (Completed)</option>
+                </select>
+              </div>
+              {formError && <p className="text-red-500 text-sm font-medium">{formError}</p>}
+            </div>
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end space-x-2">
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition"
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+              >
+                저장하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- 회의 일정 추가/수정 모달 --- */}
+      {isMeetingModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800 flex items-center">
+                <Users className="text-indigo-600 mr-2" size={20}/>
+                {editingSchedule ? '회의 일정 수정' : '새 회의 일정 추가'}
+              </h3>
+              <button onClick={() => setIsMeetingModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">회의명 (차수)</label>
+                <input 
+                  type="text" 
+                  value={meetingFormData.title}
+                  onChange={(e) => setMeetingFormData({...meetingFormData, title: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder="예: 제3회 사회공헌위원회 회의"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">일시</label>
+                <div className="flex space-x-2">
+                  <input 
+                    type="date" 
+                    value={meetingFormData.exactDate?.split('T')[0] || ''}
+                    onChange={(e) => {
+                      const time = meetingFormData.exactDate?.split('T')[1]?.substring(0,5) || '10:00';
+                      setMeetingFormData({...meetingFormData, exactDate: `${e.target.value}T${time}`});
+                    }}
+                    className="flex-1 p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  />
+                  <select
+                    value={meetingFormData.exactDate?.split('T')[1]?.substring(0,5) || '10:00'}
+                    onChange={(e) => {
+                      const date = meetingFormData.exactDate?.split('T')[0] || new Date().toISOString().split('T')[0];
+                      setMeetingFormData({...meetingFormData, exactDate: `${date}T${e.target.value}`});
+                    }}
+                    className="w-28 p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    {TIME_OPTIONS.map(time => (
+                      <option key={time} value={time}>{time}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">주요 안건</label>
+                <textarea 
+                  value={meetingFormData.agenda}
+                  onChange={(e) => setMeetingFormData({...meetingFormData, agenda: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none h-24"
+                  placeholder="회의에서 논의할 주요 내용을 입력하세요"
+                ></textarea>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">진행 상태</label>
+                <select 
+                  value={meetingFormData.status}
+                  onChange={(e) => setMeetingFormData({...meetingFormData, status: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  <option value="upcoming">예정 (Upcoming)</option>
+                  <option value="current">진행 중 (Current)</option>
+                  <option value="completed">완료 (Completed)</option>
+                </select>
+              </div>
+              {formError && <p className="text-red-500 text-sm font-medium">{formError}</p>}
+            </div>
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end space-x-2">
+              <button 
+                onClick={() => setIsMeetingModalOpen(false)}
+                className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition"
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleSaveMeeting}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition"
+              >
+                저장하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChecklistPage({ isAdmin, projectsData, onToggleTask, onAddTask, onUpdateTask, onDeleteTask }) {
+  const [editingTaskId, setEditingTaskId] = useState(null);
+  const [editTaskText, setEditTaskText] = useState('');
+  const [newTaskTexts, setNewTaskTexts] = useState({});
+
+  const handleStartEdit = (task) => {
+    setEditingTaskId(task.id);
+    setEditTaskText(task.text);
+  };
+
+  const handleSaveEdit = (projectId) => {
+    if (editTaskText.trim() !== '') {
+      onUpdateTask(projectId, editingTaskId, editTaskText);
+    }
+    setEditingTaskId(null);
+    setEditTaskText('');
+  };
+
+  const handleAddNewTask = (projectId) => {
+    const text = newTaskTexts[projectId] || '';
+    if (text.trim() === '') return;
+    onAddTask(projectId, text);
+    setNewTaskTexts(prev => ({ ...prev, [projectId]: '' }));
+  };
+
+  return (
+    <div className="space-y-6 pb-16 md:pb-0">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold">사업별 체크리스트</h2>
+      </div>
+      
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {projectsData.map(project => {
+          const completedTasks = project.tasks.filter(t => t.completed).length;
+          const totalTasks = project.tasks.length;
+          const taskProgress = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+          
+          const ProjectIcon = project.icon;
+          const colorClass = getProjectColor(project);
+          
+          // 테마에 따른 스타일 결정 (파랑 vs 주황)
+          const isPrimary = project.theme !== 'secondary';
+          const headerBgColor = isPrimary ? 'bg-blue-50' : 'bg-amber-50';
+          const iconTextColor = isPrimary ? 'text-blue-600' : 'text-amber-600';
+          const progressColor = isPrimary ? 'bg-blue-500' : 'bg-amber-500';
+          const checkboxColor = isPrimary ? 'text-blue-600 focus:ring-blue-500' : 'text-amber-600 focus:ring-amber-500';
+
+          return (
+            <div key={project.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className={`p-4 border-b border-slate-100 flex items-center justify-between ${headerBgColor}`}>
+                <div className="flex items-center space-x-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center bg-white ${iconTextColor} shadow-sm`}>
+                    {ProjectIcon && <ProjectIcon size={20} />}
+                  </div>
+                  <h3 className="font-bold text-lg text-slate-800">{project.title}</h3>
+                </div>
+                <div className="text-sm font-bold text-slate-600 bg-white px-3 py-1 rounded-full shadow-sm">
+                  {completedTasks} / {totalTasks} 완료
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="w-full bg-slate-100 rounded-full h-1.5 mb-5">
+                  <div 
+                    className={`h-1.5 rounded-full transition-all duration-500 ${taskProgress === 100 ? 'bg-green-500' : progressColor}`} 
+                    style={{ width: `${taskProgress}%` }}
+                  ></div>
+                </div>
+
+                <ul className="space-y-3">
+                  {project.tasks.map(task => (
+                    <li key={task.id} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg border border-slate-100">
+                      {editingTaskId === task.id ? (
+                        <div className="flex-1 flex items-center space-x-2">
+                          <input 
+                            type="text" 
+                            value={editTaskText} 
+                            onChange={(e) => setEditTaskText(e.target.value)} 
+                            className="flex-1 p-2 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                            autoFocus
+                            onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit(project.id)}
+                          />
+                          <button onClick={() => handleSaveEdit(project.id)} className="p-2 text-blue-600 hover:bg-blue-100 rounded transition" title="저장">
+                            <Save size={18} />
+                          </button>
+                          <button onClick={() => setEditingTaskId(null)} className="p-2 text-slate-400 hover:bg-slate-200 rounded transition" title="취소">
+                            <X size={18} />
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-start flex-1">
+                            <input 
+                              type="checkbox" 
+                              checked={task.completed}
+                              onChange={() => onToggleTask(project.id, task.id)}
+                              className={`mt-1 mr-3 rounded cursor-pointer w-4 h-4 flex-shrink-0 ${checkboxColor}`} 
+                            />
+                            <span className={`text-sm font-medium leading-relaxed ${task.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}>
+                              {task.text}
+                            </span>
+                          </div>
+                          {isAdmin && (
+                            <div className="flex items-center space-x-1 ml-4 pl-3 opacity-50 hover:opacity-100 transition-opacity">
+                              <button onClick={() => handleStartEdit(task)} className="p-1.5 text-slate-500 hover:text-blue-600 rounded transition" title="수정">
+                                <Edit size={16} />
+                              </button>
+                              <button onClick={() => onDeleteTask(project.id, task.id)} className="p-1.5 text-slate-500 hover:text-red-600 rounded transition" title="삭제">
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                
+                {isAdmin && (
+                  <div className="mt-4 flex items-center space-x-2">
+                    <input 
+                      type="text"
+                      value={newTaskTexts[project.id] || ''}
+                      onChange={(e) => setNewTaskTexts(prev => ({ ...prev, [project.id]: e.target.value }))}
+                      placeholder="새로운 체크리스트 항목 입력..."
+                      className="flex-1 p-2 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-slate-50"
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddNewTask(project.id)}
+                    />
+                    <button 
+                      onClick={() => handleAddNewTask(project.id)}
+                      className="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-lg hover:bg-slate-900 transition flex items-center"
+                    >
+                      <Plus size={16} className="mr-1 flex-shrink-0" /> 추가
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Projects({ isAdmin, showMessage, projectsData, membersData, currentUser, onToggleParticipation, onToggleScheduleCompletion, onAddProject, onUpdateProjectInfo, onDeleteProject, onAddProjectSchedule, onUpdateProjectSchedule, onDeleteProjectSchedule }) {
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const selectedProject = projectsData.find(p => p.id === selectedProjectId);
+
+  // --- 신규/수정 사업 모달 상태 ---
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState(null);
+  const [projectFormData, setProjectFormData] = useState({ title: '', description: '', theme: 'primary' });
+
+  // --- 세부 일정 모달 상태 ---
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
+  const [scheduleFormData, setScheduleFormData] = useState({ district: '', type: '', date: '', contact: '' });
+
+  // -- 사업 등록/수정 핸들러 --
+  const handleOpenAddProject = () => {
+    setEditingProject(null);
+    setProjectFormData({ title: '', description: '', theme: 'primary' });
+    setIsProjectModalOpen(true);
+  };
+
+  const handleOpenEditProject = (project) => {
+    setEditingProject(project);
+    setProjectFormData({ title: project.title, description: project.description, theme: project.theme });
+    setIsProjectModalOpen(true);
+  };
+
+  const handleSaveProject = () => {
+    if (!projectFormData.title.trim()) return;
+    
+    const getIcon = (theme) => theme === 'primary' ? Briefcase : Activity;
+    const getColor = (theme) => theme === 'primary' ? 'bg-blue-100 text-blue-600' : 'bg-amber-100 text-amber-600';
+
+    if (editingProject) {
+      onUpdateProjectInfo(editingProject.id, {
+        ...projectFormData,
+        color: getColor(projectFormData.theme)
+      });
+    } else {
+      onAddProject({
+        ...projectFormData,
+        icon: getIcon(projectFormData.theme),
+        color: getColor(projectFormData.theme)
+      });
+    }
+    setIsProjectModalOpen(false);
+  };
+
+  // -- 세부 일정 등록/수정 핸들러 --
+  const handleOpenAddSchedule = () => {
+    setEditingSchedule(null);
+    setScheduleFormData({ district: '', type: '', date: '', contact: '' });
+    setIsScheduleModalOpen(true);
+  };
+
+  const handleOpenEditSchedule = (schedule) => {
+    setEditingSchedule(schedule);
+    setScheduleFormData({ district: schedule.district, type: schedule.type, date: schedule.date, contact: schedule.contact });
+    setIsScheduleModalOpen(true);
+  };
+
+  const handleSaveSchedule = () => {
+    if (!scheduleFormData.district.trim() || !scheduleFormData.type.trim()) return;
+    
+    if (editingSchedule) {
+      onUpdateProjectSchedule(selectedProjectId, editingSchedule.id, scheduleFormData);
+    } else {
+      onAddProjectSchedule(selectedProjectId, scheduleFormData);
+    }
+    setIsScheduleModalOpen(false);
+  };
+
+  const renderMemberNames = (memberIds) => {
+    if (!memberIds || memberIds.length === 0) return '없음';
+    return memberIds
+      .map(id => membersData.find(m => m.id === id)?.name)
+      .filter(Boolean)
+      .join(', ');
+  };
+
+  const getTypeStyle = (type, projectTheme) => {
+    if (type.includes('사전')) return 'bg-slate-100 text-slate-700';
+    if (projectTheme === 'secondary') return 'bg-amber-100 text-amber-700'; // 부속사업 강조색
+    if (type.includes('본봉사') || type.includes('병행') || type.includes('본행사')) return 'bg-blue-100 text-blue-700';
+    return 'bg-purple-100 text-purple-700';
+  };
+
+  const getUpcomingSchedules = () => {
+    const allSchedules = [];
+    projectsData.forEach(project => {
+      if (project.schedules) {
+        project.schedules.forEach(schedule => {
+          if (!schedule.completed) {
+            allSchedules.push({
+              ...schedule,
+              projectId: project.id,
+              projectTitle: project.title,
+              projectIcon: project.icon,
+              projectColor: getProjectColor(project),
+              projectTheme: project.theme
+            });
+          }
+        });
+      }
+    });
+
+    return allSchedules.sort((a, b) => {
+      const parseDate = (dateStr) => {
+        const match = dateStr.match(/(\d{4})\.(\d{2})\.(\d{2})/);
+        if (match) return new Date(match[1], match[2] - 1, match[3]).getTime();
+        return Infinity;
+      };
+      return parseDate(a.date) - parseDate(b.date);
+    }).slice(0, 2);
+  };
+
+  const upcomingSchedules = getUpcomingSchedules();
+
+  // 진행도 100% 모노톤 분리 및 맨 아래 정렬 로직 적용
+  const sortedProjects = [...projectsData].sort((a, b) => {
+    const progressA = calculateProgress(a.tasks, a.schedules);
+    const progressB = calculateProgress(b.tasks, b.schedules);
+    if (progressA === 100 && progressB !== 100) return 1; // A가 100%면 아래로
+    if (progressA !== 100 && progressB === 100) return -1; // B가 100%면 아래로
+    return 0; // 나머지는 기존 순서 유지
+  });
+
+  return (
+    <div className="space-y-6 pb-16 md:pb-0 relative">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold">주요 사업 현황</h2>
+        {isAdmin && (
+          <button 
+            onClick={handleOpenAddProject}
+            className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition"
+          >
+            <Plus size={16} className="mr-1" /> 신규 사업 등록
+          </button>
+        )}
+      </div>
+
+      {/* --- 상단: 다가오는 핵심 일정 위젯 --- */}
+      {upcomingSchedules.length > 0 && (
+        <div className="mb-2">
+          <h3 className="text-sm font-bold text-slate-500 mb-3 flex items-center">
+            <Clock size={16} className="mr-1" /> 가장 가까운 예정 일정
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {upcomingSchedules.map(schedule => {
+              const isParticipating = schedule.memberIds.includes(currentUser.id);
+              const ScheduleIcon = schedule.projectIcon;
+              const isPrimary = schedule.projectTheme !== 'secondary';
+              const buttonColorActive = isPrimary ? 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200';
+              const safeColorClass = getProgressColorClass(schedule.projectColor);
+              
+              return (
+                <div key={`upcoming-${schedule.id}`} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col relative overflow-hidden hover:shadow-md transition-shadow">
+                  <div className={`absolute top-0 left-0 w-1.5 h-full ${safeColorClass}`}></div>
+                  <div className="flex justify-between items-start mb-2 pl-2">
+                    <div>
+                      <span className={`text-xs font-bold mb-1 block ${isPrimary ? 'text-blue-600' : 'text-amber-600'}`}>{schedule.projectTitle}</span>
+                      <h4 className="font-bold text-slate-800">{schedule.district} - {schedule.type}</h4>
+                      <p className="text-sm text-slate-500 mt-0.5 flex items-center">
+                        <Calendar size={13} className="mr-1 inline" /> {schedule.date}
+                      </p>
+                    </div>
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${schedule.projectColor}`}>
+                      {ScheduleIcon && <ScheduleIcon size={16} />}
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between pl-2">
+                    <div className="text-xs text-slate-500">
+                      참여 <span className="font-bold text-slate-700">{schedule.memberIds.length}</span>명
+                    </div>
+                    <button
+                      onClick={() => onToggleParticipation(schedule.projectId, schedule.id, currentUser.id)}
+                      className={`flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-bold transition-colors border ${
+                        isParticipating ? buttonColorActive : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      {isParticipating ? (
+                        <span className="flex items-center"><CheckCircle size={14} className="mr-1" /> 참여 중</span>
+                      ) : (
+                        <span className="flex items-center"><Circle size={14} className="mr-1" /> 참여하기</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* --- 사업 카드 목록 (100% 완료 사업은 회색조 적용 및 하단 배치) --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {sortedProjects.map(project => {
+          const progress = calculateProgress(project.tasks, project.schedules);
+          const isCompleted = progress === 100;
+          const ProjectIcon = project.icon;
+          const isPrimary = project.theme !== 'secondary';
+          
+          // 완료 여부에 따른 스타일 조건부 적용
+          const cardBaseClasses = isCompleted 
+            ? 'border-slate-200 opacity-80 grayscale hover:opacity-100 transition-opacity' 
+            : (isPrimary ? 'hover:border-blue-300 transition-colors' : 'hover:border-amber-300 transition-colors');
+            
+          const badgeBgColor = isCompleted ? 'bg-slate-500' : (isPrimary ? 'bg-blue-500' : 'bg-amber-500');
+          const safeBgColor = isCompleted ? 'bg-slate-200 text-slate-500' : getProjectColor(project);
+          const progressColor = isCompleted ? 'bg-slate-400' : (isPrimary ? 'bg-blue-500' : 'bg-amber-500');
+          const buttonTextColor = isCompleted ? 'text-slate-600 hover:text-slate-800' : (isPrimary ? 'text-blue-600 hover:text-blue-800' : 'text-amber-600 hover:text-amber-800');
+          const progressTextColor = isCompleted ? 'text-slate-600 font-bold' : (isPrimary ? 'text-blue-600 font-bold' : 'text-amber-600 font-bold');
+
+          return (
+            <div key={project.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden flex flex-col relative group ${cardBaseClasses}`}>
+              {/* 테마 라벨 표시 */}
+              <div className={`absolute top-0 right-0 px-3 py-1 text-[10px] font-bold rounded-bl-lg text-white ${badgeBgColor}`}>
+                {isCompleted ? '완료된 사업' : (isPrimary ? '주요사업' : '부속사업')}
+              </div>
+
+              <div className="p-6 flex-1 mt-2">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${safeBgColor} shadow-sm`}>
+                      {ProjectIcon && <ProjectIcon size={24} />}
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-bold text-slate-800 pr-2">{project.title}</h3>
+                      <p className="text-sm font-medium text-slate-500">
+                        통합 진척도: <span className={progressTextColor}>{progress}%</span>
+                      </p>
+                    </div>
+                  </div>
+                  {isAdmin && (
+                    <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                       <button 
+                        onClick={() => handleOpenEditProject(project)}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 rounded-md hover:bg-slate-100 transition" 
+                        title="사업 수정"
+                      >
+                        <Edit size={16} />
+                      </button>
+                       <button 
+                        onClick={() => {
+                          if(window.confirm(`'${project.title}' 사업을 정말 삭제하시겠습니까?`)) {
+                            onDeleteProject(project.id);
+                          }
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-red-600 rounded-md hover:bg-slate-100 transition" 
+                        title="사업 삭제"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="w-full bg-slate-100 rounded-full h-2 mb-4">
+                  <div 
+                    className={`h-2 rounded-full transition-all duration-500 ${progressColor}`} 
+                    style={{ width: `${progress}%` }}
+                  ></div>
+                </div>
+
+                <div className="text-sm text-slate-600 line-clamp-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                  {project.description || '사업 설명이 없습니다.'}
+                </div>
+              </div>
+              <div className="bg-slate-50 p-4 border-t border-slate-100 text-center">
+                <button 
+                  onClick={() => setSelectedProjectId(project.id)}
+                  className={`${buttonTextColor} text-sm font-bold flex items-center justify-center w-full`}
+                >
+                  세부 일정 및 참여 관리 <ChevronRight size={16} className="ml-1" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* --- 신규 사업 등록 모달 --- */}
+      {isProjectModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800">{editingProject ? '사업 내용 수정' : '신규 사업 등록'}</h3>
+              <button onClick={() => setIsProjectModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">사업명 (필수)</label>
+                <input 
+                  type="text" 
+                  value={projectFormData.title}
+                  onChange={(e) => setProjectFormData({...projectFormData, title: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="예: 지역아동센터 벽화 그리기"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">사업 분류 (테마)</label>
+                <div className="flex space-x-3">
+                  <label className="flex-1 flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-blue-50">
+                    <input 
+                      type="radio" 
+                      name="theme" 
+                      value="primary" 
+                      checked={projectFormData.theme === 'primary'}
+                      onChange={() => setProjectFormData({...projectFormData, theme: 'primary'})}
+                      className="mr-2 text-blue-600"
+                    />
+                    <span className="text-sm font-medium text-slate-700">주요 사업 (파랑)</span>
+                  </label>
+                  <label className="flex-1 flex items-center p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-amber-50">
+                    <input 
+                      type="radio" 
+                      name="theme" 
+                      value="secondary" 
+                      checked={projectFormData.theme === 'secondary'}
+                      onChange={() => setProjectFormData({...projectFormData, theme: 'secondary'})}
+                      className="mr-2 text-amber-600"
+                    />
+                    <span className="text-sm font-medium text-slate-700">부속 사업 (주황)</span>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">사업 설명</label>
+                <textarea 
+                  value={projectFormData.description}
+                  onChange={(e) => setProjectFormData({...projectFormData, description: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none h-24"
+                  placeholder="사업의 목적 및 주요 내용을 간단히 기재하세요"
+                ></textarea>
+              </div>
+            </div>
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end space-x-2">
+              <button 
+                onClick={() => setIsProjectModalOpen(false)}
+                className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition"
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleSaveProject}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+              >
+                저장하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- 개별 사업 상세 모달 (세부일정 표 포함) --- */}
+      {selectedProject && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-40 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100">
+              <div className="flex items-center">
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center mr-3 ${getProjectColor(selectedProject)}`}>
+                  {selectedProject.icon && React.createElement(selectedProject.icon, { size: 20 })}
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-800">{selectedProject.title}</h3>
+                  <p className="text-xs font-medium text-slate-500 mt-0.5">체크리스트와 일정을 포함한 통합 진척도: <span className={selectedProject.theme === 'primary' ? 'text-blue-600' : 'text-amber-600'}>{calculateProgress(selectedProject.tasks, selectedProject.schedules)}%</span></p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedProjectId(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              <div className="mb-6">
+                <h4 className="text-sm font-bold text-slate-800 mb-2">사업 개요</h4>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  {selectedProject.description || '등록된 설명이 없습니다.'}
+                </p>
+              </div>
+
+              <div className="mb-3 flex justify-between items-end">
+                <h4 className="text-sm font-bold text-slate-800">세부 일정 및 인원 배정 현황</h4>
+                {isAdmin && (
+                  <button 
+                    onClick={handleOpenAddSchedule}
+                    className="flex items-center px-3 py-1.5 bg-blue-50 text-blue-700 rounded hover:bg-blue-100 text-xs font-bold transition"
+                  >
+                    <Plus size={14} className="mr-1" /> 일정 추가
+                  </button>
+                )}
+              </div>
+
+              {selectedProject.schedules && selectedProject.schedules.length > 0 ? (
+                <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">상태</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">지역구</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">구분</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">일정/시간</th>
+                        <th className="py-3 px-4 font-semibold min-w-[200px]">참여 위원</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap">담당자/비고</th>
+                        <th className="py-3 px-4 font-semibold whitespace-nowrap text-center">나의 참여</th>
+                        {isAdmin && <th className="py-3 px-4 font-semibold whitespace-nowrap text-center">관리</th>}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {selectedProject.schedules.map((schedule) => {
+                        const isParticipating = schedule.memberIds.includes(currentUser.id);
+                        const isPrimary = selectedProject.theme !== 'secondary';
+                        const toggleBtnActive = isPrimary ? 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200' : 'bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-200';
+
+                        return (
+                          <tr key={schedule.id} className={`hover:bg-slate-50 transition-colors group ${schedule.completed ? 'opacity-60 bg-slate-50' : ''}`}>
+                            <td className="py-3 px-4 text-center">
+                              {isAdmin ? (
+                                <button
+                                  onClick={() => onToggleScheduleCompletion(selectedProject.id, schedule.id)}
+                                  className={`px-2 py-1 rounded text-xs font-bold transition-colors w-full border ${
+                                    schedule.completed ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                                  }`}
+                                >
+                                  {schedule.completed ? '완료됨' : '예정/진행'}
+                                </button>
+                              ) : (
+                                <span className={`inline-block px-2 py-1 rounded text-xs font-bold ${
+                                  schedule.completed ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                                }`}>
+                                  {schedule.completed ? '완료됨' : '예정'}
+                                </span>
+                              )}
+                            </td>
+                            <td className={`py-3 px-4 font-bold ${schedule.completed ? 'text-slate-500 line-through' : 'text-slate-800'}`}>{schedule.district}</td>
+                            <td className="py-3 px-4">
+                              <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-md ${getTypeStyle(schedule.type, selectedProject.theme)}`}>
+                                {schedule.type}
+                              </span>
+                            </td>
+                            <td className={`py-3 px-4 ${schedule.completed ? 'text-slate-400' : 'text-slate-600'}`}>{schedule.date}</td>
+                            <td className={`py-3 px-4 leading-relaxed ${schedule.completed ? 'text-slate-400' : 'text-slate-600'}`}>
+                              {renderMemberNames(schedule.memberIds)}
+                              {schedule.memberIds.length > 0 && <span className={`ml-2 text-xs font-semibold ${isPrimary ? 'text-blue-500' : 'text-amber-500'}`}>({schedule.memberIds.length}명)</span>}
+                            </td>
+                            <td className="py-3 px-4 text-slate-500 text-xs">{schedule.contact}</td>
+                            <td className="py-3 px-4 text-center">
+                              <button
+                                onClick={() => onToggleParticipation(selectedProject.id, schedule.id, currentUser.id)}
+                                disabled={schedule.completed}
+                                className={`flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-bold transition-colors w-24 mx-auto border ${
+                                  schedule.completed ? 'bg-slate-100 text-slate-400 cursor-not-allowed border-slate-200' :
+                                  isParticipating 
+                                    ? toggleBtnActive
+                                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
+                                }`}
+                              >
+                                {isParticipating ? (
+                                  <span className="flex items-center"><CheckCircle size={14} className="mr-1" /> 참여 중</span>
+                                ) : (
+                                  <span className="flex items-center"><Circle size={14} className="mr-1" /> 참여하기</span>
+                                )}
+                              </button>
+                            </td>
+                            {isAdmin && (
+                              <td className="py-3 px-4 text-center">
+                                <div className="flex justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button onClick={() => handleOpenEditSchedule(schedule)} className="p-1 text-slate-400 hover:text-blue-600 rounded transition"><Edit size={16}/></button>
+                                  <button onClick={() => {
+                                    if(window.confirm('이 일정을 삭제하시겠습니까?')) {
+                                      onDeleteProjectSchedule(selectedProject.id, schedule.id);
+                                    }
+                                  }} className="p-1 text-slate-400 hover:text-red-600 rounded transition"><Trash2 size={16}/></button>
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-10 bg-slate-50 rounded-lg border border-slate-100 text-slate-500">
+                  등록된 세부 일정이 없습니다. 관리자에게 문의하세요.
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end">
+              <button 
+                onClick={() => setSelectedProjectId(null)}
+                className={`px-5 py-2 text-white text-sm font-medium rounded-lg transition shadow-sm ${selectedProject.theme === 'primary' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-amber-500 hover:bg-amber-600'}`}
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- 세부 일정 등록/수정 모달 --- */}
+      {isScheduleModalOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-40 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800">{editingSchedule ? '세부 일정 수정' : '세부 일정 추가'}</h3>
+              <button onClick={() => setIsScheduleModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">지역구</label>
+                <input 
+                  type="text" 
+                  value={scheduleFormData.district}
+                  onChange={(e) => setScheduleFormData({...scheduleFormData, district: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="예: 강동구, 전체지역"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">구분 (역할/단계)</label>
+                <input 
+                  type="text" 
+                  value={scheduleFormData.type}
+                  onChange={(e) => setScheduleFormData({...scheduleFormData, type: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="예: 사전답사, 본봉사, 포장"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">일정 / 시간</label>
+                <input 
+                  type="text" 
+                  value={scheduleFormData.date}
+                  onChange={(e) => setScheduleFormData({...scheduleFormData, date: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="예: 2026.10.20 (예정)"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">담당자 및 비고</label>
+                <input 
+                  type="text" 
+                  value={scheduleFormData.contact}
+                  onChange={(e) => setScheduleFormData({...scheduleFormData, contact: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="추가 설명이나 담당자 입력"
+                />
+              </div>
+            </div>
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end space-x-2">
+              <button 
+                onClick={() => setIsScheduleModalOpen(false)}
+                className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition"
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleSaveSchedule}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+              >
+                저장하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NavItem({ icon: Icon, label, isActive, onClick }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+        isActive 
+          ? 'bg-blue-50 text-blue-700 font-semibold' 
+          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+      }`}
+    >
+      <Icon size={20} className={isActive ? 'text-blue-600' : 'text-slate-400'} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function MobileNavItem({ icon: Icon, label, isActive, onClick }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center w-16 ${
+        isActive ? 'text-blue-600' : 'text-slate-500'
+      }`}
+    >
+      <Icon size={24} className="mb-1" />
+      <span className="text-[10px] font-medium">{label}</span>
+    </button>
+  );
+}
+
+function StatCard({ title, value, subtitle }) {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+      <h3 className="text-slate-500 text-sm font-medium mb-1">{title}</h3>
+      <div className="text-2xl font-bold text-slate-800 mb-1">{value}</div>
+      <p className="text-xs text-slate-400">{subtitle}</p>
+    </div>
+  );
+}
+
+function Members({ isAdmin, projectsData, membersData, onAddMember, onUpdateMember, onDeleteMember }) {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState(null);
+  const [formData, setFormData] = useState({ name: '', group: '위원', role: '위원' });
+  const [formError, setFormError] = useState('');
+
+  const handleOpenAdd = () => {
+    setEditingMember(null);
+    setFormData({ name: '', group: '위원', role: '위원' });
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (member) => {
+    setEditingMember(member);
+    setFormData({ name: member.name, group: member.group, role: member.role });
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!formData.name.trim() || !formData.role.trim()) {
+      setFormError('이름과 직책은 필수 입력 항목입니다.');
+      return;
+    }
+    
+    if (editingMember) {
+      onUpdateMember(editingMember.id, formData);
+    } else {
+      onAddMember(formData);
+    }
+    setIsModalOpen(false);
+  };
+
+  // 완료 여부(isCompleted)에 따라 각각의 일정을 추출하도록 수정
+  const getMemberParticipations = (memberId, isCompleted) => {
+    const participations = [];
+    projectsData.forEach(project => {
+      // !!를 사용하여 불리언 타입으로 엄격하게 비교 (완료됨: true, 예정: false)
+      const targetSchedules = project.schedules?.filter(schedule => schedule.memberIds.includes(memberId) && !!schedule.completed === isCompleted);
+      if (targetSchedules && targetSchedules.length > 0) {
+        participations.push({
+          projectTitle: project.title,
+          theme: project.theme,
+          details: targetSchedules.map(s => `${s.district}(${s.type})`)
+        });
+      }
+    });
+    return participations;
+  };
+
+  const renderMemberCard = (member) => {
+    const isAdminUser = isMemberAdmin(member.role);
+    const activeParticipations = getMemberParticipations(member.id, false);
+    const completedParticipations = getMemberParticipations(member.id, true);
+
+    return (
+      <div key={member.id} className="bg-white border border-slate-200 rounded-xl p-5 flex flex-col hover:shadow-md transition-shadow relative group">
+        {isAdmin && (
+          <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1">
+            <button 
+              onClick={() => handleOpenEdit(member)} 
+              className="p-1.5 text-slate-400 hover:text-blue-600 rounded hover:bg-blue-50 transition"
+              title="수정"
+            >
+              <Edit size={16} />
+            </button>
+            <button 
+              onClick={() => {
+                if(window.confirm(`'${member.name}' 위원을 정말 삭제하시겠습니까?`)) {
+                  onDeleteMember(member.id);
+                }
+              }} 
+              className="p-1.5 text-slate-400 hover:text-red-600 rounded hover:bg-red-50 transition"
+              title="삭제"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        )}
+        
+        <div className="flex items-center space-x-4 mb-4">
+          <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg flex-shrink-0 ${
+            isAdminUser ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-600'
+          }`}>
+            {member.name.charAt(0)}
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800">{member.name}</h3>
+            <p className="text-sm text-slate-500">{member.role}</p>
+          </div>
+        </div>
+        
+        <div className="mt-auto border-t border-slate-100 pt-3">
+          <h4 className="text-xs font-semibold text-slate-500 mb-2">진행 예정인 활동</h4>
+          {activeParticipations.length > 0 ? (
+            <div className="space-y-2">
+              {activeParticipations.map((part, idx) => (
+                <div key={idx} className="text-xs">
+                  <div className={`font-medium mb-0.5 ${part.theme === 'secondary' ? 'text-amber-600' : 'text-slate-800'}`}>
+                    {part.projectTitle}
+                  </div>
+                  <div className="text-slate-500 pl-2 border-l-2 border-slate-200">
+                    {part.details.join(', ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic">현재 예정된 일정이 없습니다.</p>
+          )}
+        </div>
+
+        <div className="border-t border-slate-100 pt-3 mt-3">
+          <h4 className="text-xs font-semibold text-slate-500 mb-2">완료된 활동</h4>
+          {completedParticipations.length > 0 ? (
+            <div className="space-y-2 opacity-60">
+              {completedParticipations.map((part, idx) => (
+                <div key={idx} className="text-xs">
+                  <div className={`font-medium mb-0.5 line-through ${part.theme === 'secondary' ? 'text-amber-600' : 'text-slate-700'}`}>
+                    {part.projectTitle}
+                  </div>
+                  <div className="text-slate-400 pl-2 border-l-2 border-slate-200 line-through">
+                    {part.details.join(', ')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic">아직 완료된 활동이 없습니다.</p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-6 pb-16 md:pb-0">
+      <div className="flex justify-between items-center mb-2">
+        <h2 className="text-xl font-bold">전체 위원 명단</h2>
+        <div className="flex items-center space-x-3">
+          <div className="hidden sm:flex items-center space-x-3 text-xs font-medium text-slate-500 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+            <div className="flex items-center"><span className="w-3 h-3 rounded-full bg-amber-100 border border-amber-200 mr-1.5"></span> 임원진</div>
+            <div className="flex items-center"><span className="w-3 h-3 rounded-full bg-blue-100 border border-blue-200 mr-1.5"></span> 위원</div>
+          </div>
+          {isAdmin && (
+            <button 
+              onClick={handleOpenAdd}
+              className="flex items-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold transition shadow-sm"
+            >
+              <Plus size={16} className="mr-1" /> 위원 추가
+            </button>
+          )}
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {membersData.map(renderMemberCard)}
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-40 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="flex justify-between items-center p-5 border-b border-slate-100">
+              <h3 className="text-lg font-bold text-slate-800">{editingMember ? '위원 정보 수정' : '신규 위원 등록'}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 transition">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">이름</label>
+                <input 
+                  type="text" 
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="예: 홍길동"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">직책</label>
+                <input 
+                  type="text" 
+                  value={formData.role}
+                  onChange={(e) => setFormData({...formData, role: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="예: 위원장, 부위원장, 위원 등"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">그룹 구분</label>
+                <select 
+                  value={formData.group}
+                  onChange={(e) => setFormData({...formData, group: e.target.value})}
+                  className="w-full p-2.5 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="임원진">임원진 (주황색 프로필)</option>
+                  <option value="위원">위원 (파란색 프로필)</option>
+                </select>
+                <p className="text-xs text-slate-500 mt-2">* 직책이 '위원장', '부위원장', '총무위원'인 경우 자동으로 관리자 권한이 부여됩니다.</p>
+              </div>
+              {formError && <p className="text-red-500 text-sm font-medium">{formError}</p>}
+            </div>
+            <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end space-x-2">
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="px-4 py-2 bg-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-300 transition"
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleSave}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition"
+              >
+                저장하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

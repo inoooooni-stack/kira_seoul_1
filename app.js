@@ -622,6 +622,14 @@
     }
   }
 
+  function isMobileNarrow() {
+    try {
+      return window.matchMedia && window.matchMedia('(max-width: 720px)').matches;
+    } catch {
+      return false;
+    }
+  }
+
   function viewLogin() {
     const selectedId = state.modal?.type === 'login_select' ? state.modal.selectedMemberId : null;
     const password = state.modal?.type === 'login_select' ? state.modal.password : '';
@@ -1004,6 +1012,33 @@
   /* --- Views: Annual Schedule --- */
   function viewAnnualSchedule() {
     const isAdmin = isMemberAdmin(state.currentUser.role);
+
+    const statusLabel = (status) => {
+      if (status === 'completed') return '완료';
+      if (status === 'current') return '진행';
+      return '예정';
+    };
+    const statusTone = (status) => {
+      if (status === 'completed') return 'done';
+      if (status === 'current') return 'current';
+      return 'upcoming';
+    };
+
+    const monthFromMonthStr = (monthStr) => {
+      const match = String(monthStr || '').match(/(\d+)/);
+      return match ? Number.parseInt(match[1], 10) : null;
+    };
+    const getMobileDateBits = (item) => {
+      if (item?.isMeeting && item.exactDate) {
+        const d = new Date(item.exactDate);
+        if (!Number.isNaN(d.getTime())) {
+          return { day: String(d.getDate()), month: `${d.getMonth() + 1}월` };
+        }
+      }
+      const m = monthFromMonthStr(item?.month);
+      return { day: '', month: m ? `${m}월` : String(item?.month || '') };
+    };
+
     const items = state.schedulesData
       .map((item) => {
         const dotStyle =
@@ -1043,6 +1078,43 @@
           `
           : '';
 
+        if (isMobileNarrow()) {
+          const bits = getMobileDateBits(item);
+          const tone = statusTone(item.status);
+          const statusChip = `<span class="annual-chip annual-chip--${tone}">${escapeHtml(statusLabel(item.status))}</span>`;
+          return `
+            <div class="annual-tl-item annual-tl-item--${tone}">
+              <div class="annual-tl-date">
+                <div class="annual-tl-date__day">${escapeHtml(bits.day)}</div>
+                <div class="annual-tl-date__month">${escapeHtml(bits.month)}</div>
+              </div>
+              <div class="annual-tl-track" aria-hidden="true">
+                <div class="annual-tl-dot annual-tl-dot--${tone}"></div>
+              </div>
+              <div class="annual-tl-card">
+                <div class="annual-tl-card__head">
+                  <div class="annual-tl-card__badges">
+                    ${statusChip}
+                    ${badge}
+                  </div>
+                  ${adminBtns}
+                </div>
+                <div class="annual-tl-card__title" ${titleCls}>${escapeHtml(item.title)}</div>
+                ${
+                  item.isMeeting
+                    ? `<div class="annual-tl-card__meta">
+                         <div><b>일시</b> ${escapeHtml(formatMeetingDate(item.exactDate))}</div>
+                         <div style="margin-top:6px"><b>안건</b> ${escapeHtml(item.agenda || '')}</div>
+                       </div>`
+                    : item.desc
+                      ? `<div class="annual-tl-card__meta annual-tl-card__meta--warn"><b>비고</b> ${escapeHtml(item.desc)}</div>`
+                      : ''
+                }
+              </div>
+            </div>
+          `;
+        }
+
         return `
           <div class="annual-item" style="display:flex;gap:12px;align-items:flex-start">
             <div style="position:relative;flex:0 0 auto;width:22px;display:flex;justify-content:center">
@@ -1080,9 +1152,15 @@
           ` : ''}
         </div>
 
-        <div class="space-y" style="border-left:2px solid #f1f5f9;padding-left:10px;margin-left:6px">
-          ${items || '<div class="muted">등록된 연간 일정이 없습니다.</div>'}
-        </div>
+        ${
+          isMobileNarrow()
+            ? `<div class="annual-timeline">
+                 ${items || '<div class="muted">등록된 연간 일정이 없습니다.</div>'}
+               </div>`
+            : `<div class="space-y" style="border-left:2px solid #f1f5f9;padding-left:10px;margin-left:6px">
+                 ${items || '<div class="muted">등록된 연간 일정이 없습니다.</div>'}
+               </div>`
+        }
       </div>
     `;
   }

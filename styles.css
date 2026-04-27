@@ -440,6 +440,149 @@ thead th{background:#f8fafc; color:#475569; font-size: 12px; font-weight: 950; b
   }
 }
 
+/* 연간 일정(모바일): 샘플 기반 타임라인 레이아웃 */
+@media (max-width: 720px){
+  .annual-timeline{
+    position: relative;
+    padding-left: 0;
+    margin-top: 6px;
+  }
+  /* 세로 라인 */
+  .annual-timeline::before{
+    content:"";
+    position:absolute;
+    left: 66px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #e2e8f0;
+  }
+
+  .annual-tl-item{
+    display:grid;
+    grid-template-columns: 56px 22px 1fr;
+    gap: 10px;
+    align-items:start;
+    padding: 10px 0;
+  }
+
+  .annual-tl-date{
+    text-align:left;
+    padding-left: 2px;
+    line-height: 1.05;
+  }
+  .annual-tl-date__day{
+    font-size: 18px;
+    font-weight: 950;
+    color:#0f172a;
+    min-height: 20px;
+  }
+  .annual-tl-date__month{
+    font-size: 12px;
+    font-weight: 900;
+    color:#94a3b8;
+    margin-top: 2px;
+  }
+
+  .annual-tl-track{
+    position: relative;
+    height: 100%;
+    display:flex;
+    justify-content:center;
+  }
+  .annual-tl-dot{
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background:#ffffff;
+    border: 3px solid #cbd5e1;
+    margin-top: 4px;
+    box-shadow: 0 0 0 4px rgba(226,232,240,.35);
+  }
+  .annual-tl-dot--current{border-color:#2563eb; box-shadow: 0 0 0 6px rgba(37,99,235,.12)}
+  .annual-tl-dot--done{border-color:#16a34a; box-shadow: 0 0 0 6px rgba(22,163,74,.12)}
+  .annual-tl-dot--upcoming{border-color:#f59e0b; box-shadow: 0 0 0 6px rgba(245,158,11,.12)}
+
+  .annual-tl-card{
+    background:#ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(15,23,42,.06);
+    padding: 14px 14px;
+    min-width: 0;
+  }
+  .annual-tl-card__head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap: 10px;
+  }
+  .annual-tl-card__badges{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    flex-wrap:wrap;
+    min-width: 0;
+  }
+  /* 배지 아이콘 크기 통일(모바일) */
+  .annual-tl-card__badges svg{
+    width: 14px;
+    height: 14px;
+    flex: 0 0 auto;
+  }
+  /* 관리 버튼은 모바일에서 조금 더 컴팩트하게 */
+  .annual-tl-card .btn--icon.btn--sm{
+    padding: 6px;
+    border-radius: 10px;
+  }
+  .annual-tl-card .btn--icon.btn--sm svg{
+    width: 16px;
+    height: 16px;
+  }
+  .annual-tl-card__title{
+    margin-top: 10px;
+    font-size: 16px;
+    font-weight: 950;
+    color:#0f172a;
+    line-height: 1.25;
+    word-break: keep-all;
+  }
+  .annual-tl-card__meta{
+    margin-top: 10px;
+    font-size: 12px;
+    color:#64748b;
+    line-height: 1.45;
+    background:#f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 12px;
+    padding: 10px 10px;
+  }
+  .annual-tl-card__meta b{
+    color:#334155;
+    margin-right: 6px;
+  }
+  .annual-tl-card__meta--warn{
+    background:#fff7ed;
+    border-color:#fed7aa;
+    color:#9a3412;
+  }
+
+  .annual-chip{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding: 4px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 950;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .annual-chip--current{background:#dbeafe; color:#1d4ed8; border-color:#bfdbfe}
+  .annual-chip--done{background:#dcfce7; color:#166534; border-color:#bbf7d0}
+  .annual-chip--upcoming{background:#fef3c7; color:#92400e; border-color:#fde68a}
+}
+
 /* 사업별 현황 > 세부 일정 표: 일부 열은 내용 기준으로 넓게(줄바꿈 방지) */
 .proj-detail-table{table-layout: auto}
 .proj-detail-table th:nth-child(1),
