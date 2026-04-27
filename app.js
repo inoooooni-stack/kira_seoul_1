@@ -614,10 +614,19 @@
   }
 
   /* --- Render: Login --- */
+  function isMobileLayout() {
+    try {
+      return window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+    } catch {
+      return false;
+    }
+  }
+
   function viewLogin() {
     const selectedId = state.modal?.type === 'login_select' ? state.modal.selectedMemberId : null;
     const password = state.modal?.type === 'login_select' ? state.modal.password : '';
     const error = state.modal?.type === 'login_select' ? state.modal.error : '';
+    const stage = state.modal?.type === 'login_select' ? state.modal.stage : 'select'; // 'select' | 'password'
 
     const cards = state.membersData
       .map((m) => {
@@ -641,6 +650,59 @@
 
     const selectedMember = state.membersData.find((m) => m.id === selectedId) || null;
     const requiresPassword = !!selectedMember && isMemberAdmin(selectedMember.role);
+    const mobile = isMobileLayout();
+
+    if (mobile && requiresPassword && stage === 'password') {
+      return `
+        <div class="login">
+          <div class="login__box login__box--centered">
+            <div class="login__hero">
+              <h1>사회공헌위원회 시스템</h1>
+              <p>관리자 비밀번호를 입력해주세요</p>
+            </div>
+            <div class="login__inner">
+              <div class="login-password">
+                <button class="btn btn--ghost login-password__back" data-action="login_back">
+                  ${icon(ICONS.chevronRight)} 위원 다시 선택
+                </button>
+                <div class="login-password__picked">
+                  <div class="${isMemberAdmin(selectedMember.role) ? 'avatar avatar--admin' : 'avatar avatar--user'}" style="flex:0 0 auto">
+                    ${escapeHtml(selectedMember.name.charAt(0))}
+                  </div>
+                  <div style="min-width:0">
+                    <div class="login-password__name">${escapeHtml(selectedMember.name)}</div>
+                    <div class="login-password__role">${escapeHtml(selectedMember.role)}</div>
+                  </div>
+                </div>
+
+                <div class="adminhint">
+                  <label class="label" style="display:flex;align-items:center;gap:8px">
+                    ${icon(ICONS.lock)}
+                    관리자 비밀번호
+                  </label>
+                  <input
+                    class="input"
+                    type="password"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    enterkeyhint="done"
+                    autocomplete="current-password"
+                    placeholder="비밀번호를 입력하세요"
+                    value="${escapeHtml(password)}"
+                    data-field="login_password"
+                  />
+                  ${error ? `<div class="error" style="margin-top:10px">${escapeHtml(error)}</div>` : ''}
+                </div>
+
+                <button class="btn btn--primary" style="width:100%" data-action="login_submit">
+                  접속하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
 
     return `
       <div class="login">
@@ -982,16 +1044,16 @@
           : '';
 
         return `
-          <div style="display:flex;gap:12px;align-items:flex-start">
+          <div class="annual-item" style="display:flex;gap:12px;align-items:flex-start">
             <div style="position:relative;flex:0 0 auto;width:22px;display:flex;justify-content:center">
               <div style="width:14px;height:14px;border-radius:999px;border:2px solid #cbd5e1;${dotStyle};margin-top:3px"></div>
             </div>
-            <div style="flex:1;min-width:0">
-              <div style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between">
-                <div style="display:flex;gap:14px;flex:1;min-width:0">
-                  <div style="width:92px;flex:0 0 auto;font-weight:950;color:#334155;font-size:1.2em;line-height:1.2">${escapeHtml(item.month)}</div>
-                  <div style="flex:1;min-width:0">
-                    <div ${titleCls} style="font-weight:${titleWeight};display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <div class="annual-item__body" style="flex:1;min-width:0">
+              <div class="annual-item__row" style="display:flex;gap:10px;align-items:flex-start;justify-content:space-between">
+                <div class="annual-item__main" style="display:flex;gap:14px;flex:1;min-width:0">
+                  <div class="annual-item__month" style="width:92px;flex:0 0 auto;font-weight:950;color:#334155;font-size:1.2em;line-height:1.2">${escapeHtml(item.month)}</div>
+                  <div class="annual-item__content" style="flex:1;min-width:0">
+                    <div class="annual-item__title" ${titleCls} style="font-weight:${titleWeight};display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                       <span>${escapeHtml(item.title)}</span>
                       ${badge}
                     </div>
@@ -1840,7 +1902,10 @@
   }
 
   function upsertLoginModal(partial) {
-    const current = state.modal?.type === 'login_select' ? state.modal : { type: 'login_select', selectedMemberId: null, password: '', error: '' };
+    const current =
+      state.modal?.type === 'login_select'
+        ? state.modal
+        : { type: 'login_select', selectedMemberId: null, password: '', error: '', stage: 'select' };
     state.modal = { ...current, ...partial, type: 'login_select' };
     render();
   }
@@ -2003,7 +2068,13 @@
     /* Login actions */
     if (action === 'login_pick') {
       const picked = Number(actionEl.getAttribute('data-id'));
-      upsertLoginModal({ selectedMemberId: picked, password: '', error: '' });
+      const member = state.membersData.find((m) => m.id === picked) || null;
+      const nextStage = isMobileLayout() && member && isMemberAdmin(member.role) ? 'password' : 'select';
+      upsertLoginModal({ selectedMemberId: picked, password: '', error: '', stage: nextStage });
+      return;
+    }
+    if (action === 'login_back') {
+      upsertLoginModal({ selectedMemberId: null, password: '', error: '', stage: 'select' });
       return;
     }
     if (action === 'login_submit') {
@@ -2305,7 +2376,7 @@
 
   // 첫 렌더 시 로그인 modal state 초기화
   if (!state.currentUser) {
-    state.modal = { type: 'login_select', selectedMemberId: null, password: '', error: '' };
+    state.modal = { type: 'login_select', selectedMemberId: null, password: '', error: '', stage: 'select' };
   }
 
   render();

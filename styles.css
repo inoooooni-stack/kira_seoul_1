@@ -424,6 +424,22 @@ thead th{background:#f8fafc; color:#475569; font-size: 12px; font-weight: 950; b
 .tablewrap{overflow:auto; border:1px solid var(--border); border-radius: 12px; background: white; -webkit-overflow-scrolling: touch}
 .row-muted{opacity:.65; background:#f8fafc}
 
+/* 연간 일정(모바일): 월/제목을 세로로 쌓아 가독성 개선 */
+@media (max-width: 720px){
+  .annual-item__row{flex-direction:column; gap: 8px}
+  .annual-item__main{flex-direction:column; gap: 8px}
+  .annual-item__month{
+    width: auto !important;
+    font-size: 14px !important;
+    line-height: 1.2 !important;
+    color:#64748b !important;
+  }
+  .annual-item__title{
+    font-size: 15px;
+    line-height: 1.35;
+  }
+}
+
 /* 사업별 현황 > 세부 일정 표: 일부 열은 내용 기준으로 넓게(줄바꿈 방지) */
 .proj-detail-table{table-layout: auto}
 .proj-detail-table th:nth-child(1),
@@ -593,6 +609,32 @@ thead th{background:#f8fafc; color:#475569; font-size: 12px; font-weight: 950; b
   width: 100%;
   flex: 1;
 }
+
+/* 모바일 전용: 관리자 비밀번호 화면(로그인) */
+.login-password{
+  max-width: 520px;
+  margin: 0 auto;
+  display:flex;
+  flex-direction:column;
+  gap: 12px;
+}
+.login-password__back{
+  justify-content:flex-start;
+  padding-left: 8px;
+}
+/* chevronRight 아이콘을 '뒤로' 느낌으로 */
+.login-password__back svg{transform: rotate(180deg)}
+.login-password__picked{
+  display:flex;
+  align-items:center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #f1f5f9;
+  border-radius: 14px;
+  background:#f8fafc;
+}
+.login-password__name{font-weight:950}
+.login-password__role{font-size:12px; color: var(--muted2); margin-top:2px}
 .login__box{
   width: min(980px, 100%);
   background: white;
