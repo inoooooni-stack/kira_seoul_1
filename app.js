@@ -662,7 +662,17 @@
                     ${icon(ICONS.lock)}
                     관리자 비밀번호
                   </label>
-                  <input class="input" type="password" placeholder="비밀번호를 입력하세요" value="${escapeHtml(password)}" data-field="login_password" />
+                  <input
+                    class="input"
+                    type="password"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    enterkeyhint="done"
+                    autocomplete="current-password"
+                    placeholder="비밀번호를 입력하세요"
+                    value="${escapeHtml(password)}"
+                    data-field="login_password"
+                  />
                   <div class="help">* 위원장, 부위원장, 총무위원은 접근 권한 확인이 필요합니다.</div>
                 </div>
               ` : ''}
@@ -1844,7 +1854,13 @@
     if (!field) return;
 
     if (field === 'login_password') {
-      upsertLoginModal({ password: el.value, error: '' });
+      // 모바일에서 input마다 전체 rerender(ROOT.innerHTML 교체)하면
+      // 키보드가 닫혔다가 다시 열리는 현상이 발생할 수 있어, 로그인 비밀번호는 DOM 값을 신뢰하고 상태만 갱신합니다.
+      if (state.modal?.type !== 'login_select') {
+        state.modal = { type: 'login_select', selectedMemberId: null, password: '', error: '' };
+      }
+      state.modal.password = el.value;
+      state.modal.error = '';
       return;
     }
 
